@@ -1,0 +1,44 @@
+library(tidyverse)
+library(readr)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+
+#1 Get data
+setwd("/Users/FangTham/OneDrive - Hazel Technologies/McDaniel College/ANA515/Week 6")
+stormdata <- read.csv("StormEvents_details-ftp_v1.0_d1996_c20220425.csv")
+
+#2 Limit the dataframe
+myvars <- c("BEGIN_YEARMONTH", "BEGIN_DATE_TIME", "END_DATE_TIME", "EPISODE_ID", "EVENT_ID", "STATE", "STATE_FIPS", "CZ_NAME", "CZ_TYPE", "CZ_FIPS", "EVENT_TYPE", "SOURCE", "BEGIN_LAT", "BEGIN_LON", "END_LAT", "END_LON")
+newstormdata <- stormdata[myvars]
+head(newstormdata)
+
+#3 Arrance data by BEGIN_YEARMONTH
+newstormdata <- arrange(newstormdata, BEGIN_YEARMONTH)
+
+#4 Change state and county names to title case (e.g., “New Jersey” instead of “NEW JERSEY”) 
+newstormdata$STATE <- str_to_title(newstormdata$STATE)
+
+#5	Limit to the events listed by county FIPS (CZ_TYPE of “C”) and then remove the CZ_TYPE column 
+newstormdata <- filter(newstormdata, CZ_TYPE == "C")
+newstormdata <- select(newstormdata, -CZ_TYPE)
+
+#6	Pad the state and county FIPS with a “0” at the beginning (hint: there’s a function in stringr to do this)and then unite the two columns to make one fips column with the 5 or 6-digit county FIPS code 
+newstormdata$STATE_FIPS <- str_pad(newstormdata$STATE_FIPS, width = 3, side = "left", pad = "0")
+newstormdata$CZ_FIPS <- str_pad(newstormdata$CZ_FIPS, width = 3, side = "left", pad = "0")
+newstormdata <- unite(newstormdata, col=FIPS, c(STATE_FIPS, CZ_FIPS), sep = "", remove = FALSE)
+
+#7	Change all the column names to lower case (you may want to try the rename_all function for this) 
+newstormdata <- rename_all(newstormdata, tolower)
+
+#8	There is data that comes with base R on U.S. states (data("state")). Use that to create a dataframe with these three columns: state name, area, and region data("state")
+us_state <- data.frame(state = state.name, region = state.region, area = state.area)
+
+#9	Create a dataframe with the number of events per state in the year of your birth. Merge in the state information dataframe you just created in step 8. Remove any states that are not in the state information dataframe.
+stateevent <- data.frame(table(newstormdata$state))
+newstateevent<-rename(stateevent, c("state"="Var1"))
+merged <- merge(x=newstateevent, y=us_state, by.x="state", by.y="state")
+
+#10 plot
+storm_plot <- ggplot(merged, aes(x = area, y = Freq)) + geom_point(aes(color = region)) + labs (x = "Land Area (Square Miles)", y = "# of storm events in 1996")
+storm_plot
